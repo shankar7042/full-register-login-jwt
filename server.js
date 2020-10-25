@@ -28,6 +28,52 @@ mongoose.connect(
   }
 );
 
+app.post("/api/change-password", async (req, res) => {
+  const { oldPassword, newPassword, token } = req.body;
+
+  const user = jwt.verify(token, JWT_SECRET);
+
+  try {
+    const userFromDB = await User.findOne({ username: user.user });
+
+    if (!userFromDB) {
+      return res.json({ status: "error", error: "Invalid token" });
+    }
+
+    const checkPassword = await bcrypt.compare(
+      oldPassword,
+      userFromDB.password
+    );
+
+    if (!checkPassword) {
+      return res.json({
+        status: "error",
+        error: "Old Password is not correct",
+      });
+    }
+
+    // Validating New Password
+    if (!newPassword || typeof newPassword !== "string") {
+      return res.json({ status: "error", error: "Invalid Username" });
+    } else if (newPassword.length < 6) {
+      return res.json({
+        status: "error",
+        error: "New Password length should be atleast 6 Characters",
+      });
+    }
+
+    const newHashedPassword = await bcrypt.hash(newPassword, 10);
+
+    userFromDB.password = newHashedPassword;
+
+    await userFromDB.save();
+
+    return res.json({ status: "ok", data: "Password change succesfully" });
+  } catch (error) {
+    throw error;
+  }
+});
+
 app.post("/api/login", async (req, res) => {
   const { username, password } = req.body;
 
