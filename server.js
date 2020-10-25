@@ -1,6 +1,8 @@
 const express = require("express");
 const path = require("path");
 const mongoose = require("mongoose");
+const User = require("./models/User");
+const bcrypt = require("bcryptjs");
 
 const app = express();
 app.use("/", express.static(path.join(__dirname, "static")));
@@ -11,6 +13,7 @@ mongoose.connect(
   {
     useNewUrlParser: true,
     useUnifiedTopology: true,
+    useCreateIndex: true,
   },
   (err) => {
     if (err) {
@@ -21,12 +24,37 @@ mongoose.connect(
   }
 );
 
-app.post("/api/register", (req, res) => {
-  console.log(req.body);
-  res.json({
-    status: "ok",
-    data: req.body,
-  });
+app.post("/api/register", async (req, res) => {
+  const { username, password } = req.body;
+
+  // Validating Username
+  if (!username || typeof username !== "string" || username.trim() === "") {
+    return res.json({ status: "error", error: "Invalid Username" });
+  }
+
+  // Validating Password
+  if (!password || typeof password !== "string") {
+    return res.json({ status: "error", error: "Invalid Username" });
+  } else if (password.length < 6) {
+    return res.json({
+      status: "error",
+      error: "Password length should be atleast 6 Characters",
+    });
+  }
+
+  // Hashing the password
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  try {
+    const user = new User({ username, password: hashedPassword });
+    await user.save();
+    return res.json({ status: "ok", data: "User created" });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.json({ status: "error", error: "Username already exists" });
+    }
+    throw error;
+  }
 });
 
 app.listen(4000, () => {
