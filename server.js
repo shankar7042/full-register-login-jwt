@@ -3,10 +3,14 @@ const path = require("path");
 const mongoose = require("mongoose");
 const User = require("./models/User");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 const app = express();
 app.use("/", express.static(path.join(__dirname, "static")));
 app.use(express.json());
+
+const JWT_SECRET =
+  "zdxfcgfsdtfvhdsvckyuvuycvuyvw!@#$%^&^%$#@!@#$%^cjksgdufyuvds87876513514dusgyucsy";
 
 mongoose.connect(
   "mongodb://localhost/full-register-login",
@@ -23,6 +27,50 @@ mongoose.connect(
     }
   }
 );
+
+app.post("/api/login", async (req, res) => {
+  const { username, password } = req.body;
+
+  // Validating Username
+  if (!username || typeof username !== "string" || username.trim() === "") {
+    return res.json({ status: "error", error: "Invalid Username" });
+  }
+
+  // Validating Password
+  if (!password || typeof password !== "string") {
+    return res.json({ status: "error", error: "Invalid Username" });
+  } else if (password.length < 6) {
+    return res.json({
+      status: "error",
+      error: "Password length should be atleast 6 Characters",
+    });
+  }
+
+  try {
+    const user = await User.findOne({ username });
+
+    if (!user) {
+      return res.json({ status: "error", error: "Username not exists" });
+    }
+
+    const checkPassword = await bcrypt.compare(password, user.password);
+
+    if (!checkPassword) {
+      return res.json({ status: "error", error: "Invalid Username/Password" });
+    }
+
+    const token = jwt.sign(
+      {
+        user: user.username,
+      },
+      JWT_SECRET
+    );
+
+    return res.json({ status: "ok", data: token });
+  } catch (error) {
+    return res.json({ status: "error", error: error.message });
+  }
+});
 
 app.post("/api/register", async (req, res) => {
   const { username, password } = req.body;
